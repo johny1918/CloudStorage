@@ -1,7 +1,6 @@
 use crate::database::AppState;
 use crate::routes::auth::register;
 use axum::Router;
-use axum::handler::Handler;
 use axum::routing::post;
 use tower_http::cors::{Any, CorsLayer};
 
