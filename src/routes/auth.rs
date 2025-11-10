@@ -1,10 +1,11 @@
-use crate::auth::hash_password;
+use crate::auth::{create_jwt, hash_password, verify_password};
 use crate::database::AppState;
-use crate::models::user::{RegisterUser};
+use crate::models::user::{LoginUser, RegisterUser, UserLogin};
 use axum::Json;
 use axum::extract::State;
 use axum::http::StatusCode;
 use serde_json::json;
+use crate::models::auth::LoginResponse;
 
 pub async fn register(
     State(state): State<AppState>,
@@ -27,4 +28,38 @@ pub async fn register(
         "status": "success",
         "message": format!("User {} created successfully", user_data.username)
     })))
+}
+
+pub async fn login(
+    State(state): State<AppState>,
+    Json(login_data): Json<LoginUser>,
+) -> Result<Json<LoginResponse>, (StatusCode, String)> {
+
+    let user_result = sqlx::query!(
+        "SELECT id, username, email, password_hash FROM users WHERE username = $1",
+        login_data.username
+    )
+        .fetch_optional(&state.db)
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    let user = user_result
+        .ok_or_else(|| (StatusCode::UNAUTHORIZED, "Invalid username or password".to_string()))?;
+
+    let is_valid = verify_password(&login_data.password, &user.password_hash)
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Password verification failed: {}", e)))?;
+
+    if !is_valid {
+        return Err((StatusCode::UNAUTHORIZED, "Invalid username or password".to_string()));
+    }
+
+    let token = create_jwt(user.id, &user.username)
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("JWT creation failed: {}", e)))?;
+
+    // Step 5: Return success response
+    Ok(Json(LoginResponse {
+        status: "success".to_string(),
+        token,
+        username: user.username,
+    }))
 }

@@ -25,3 +25,11 @@ pub struct LoginUser {
     pub username: String,
     pub password: String,
 }
+
+#[derive(Debug, Serialize, FromRow)]
+pub struct UserLogin {
+    pub id: Uuid,
+    pub username: String,
+    pub email: String,
+    pub password_hash: String,
+}

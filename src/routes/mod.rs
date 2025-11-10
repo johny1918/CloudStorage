@@ -1,5 +1,5 @@
 use crate::database::AppState;
-use crate::routes::auth::register;
+use crate::routes::auth::{login, register};
 use axum::Router;
 use axum::routing::post;
 use tower_http::cors::{Any, CorsLayer};
@@ -16,6 +16,7 @@ pub fn create_router(db_pool: AppState) -> Router {
 
     Router::new()
         .route("/register", post(register))
+        .route("/login", post(login))
         .with_state(db_pool)
         .layer(cors)
 }
