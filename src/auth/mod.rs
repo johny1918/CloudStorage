@@ -9,7 +9,7 @@ const JWT_EXPIRATION_HOURS: i64 = 24; // Token valid for 24 hours
 
 pub fn create_jwt(user_id: Uuid, username: &str) -> Result<String, jsonwebtoken::errors::Error> {
     dotenv::dotenv().ok();
-    let secret = dotenv::var("JWT_SECRET").expect("DATABASE_URL must be set");
+    let secret = dotenv::var("JWT_SECRET").expect("JWT_SECRET must be set");
 
     let expiration = chrono::Utc::now()
         .checked_add_signed(chrono::Duration::hours(JWT_EXPIRATION_HOURS))
