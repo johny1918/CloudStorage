@@ -39,8 +39,8 @@ pub async fn auth_middleware(
 fn extract_token_from_headers(headers: &HeaderMap) -> Option<String> {
     let auth_header = headers.get("authorization")?.to_str().ok()?;
 
-    if auth_header.starts_with("Bearer ") {
-        Some(auth_header[7..].to_string()) // Remove "Bearer " prefix
+    if let Some(stripped) = auth_header.strip_prefix("Bearer ") {
+        Some(stripped.to_string())
     } else {
         None
     }

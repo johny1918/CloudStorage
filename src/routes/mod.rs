@@ -1,7 +1,10 @@
+use crate::auth::auth_middleware;
 use crate::database::AppState;
 use crate::routes::auth::{login, register};
+use crate::routes::files::{list_files, upload_file};
 use axum::Router;
-use axum::routing::post;
+use axum::middleware::from_fn_with_state;
+use axum::routing::{get, post};
 use tower_http::cors::{Any, CorsLayer};
 
 pub mod auth;
@@ -14,9 +17,19 @@ pub fn create_router(db_pool: AppState) -> Router {
         .allow_methods(Any)
         .allow_headers(Any);
 
-    Router::new()
+    //Public routes, no auth required
+    let public_routes = Router::new()
         .route("/register", post(register))
-        .route("/login", post(login))
+        .route("/login", post(login));
+
+    let protected_routes = Router::new()
+        .route("/files", get(list_files))
+        .route("/upload", post(upload_file))
+        .route_layer(from_fn_with_state(db_pool.clone(), auth_middleware));
+
+    Router::new()
+        .merge(public_routes)
+        .merge(protected_routes)
         .with_state(db_pool)
         .layer(cors)
 }
