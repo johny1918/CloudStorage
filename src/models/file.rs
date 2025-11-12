@@ -16,5 +16,7 @@ pub struct File {
 pub struct UploadFileResponse {
     pub id: Uuid,
     pub filename: String,
+    pub original_name: String,
     pub size: i64,
+    pub uploaded_at: DateTime<Utc>,
 }
