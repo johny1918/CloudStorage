@@ -25,6 +25,7 @@ pub fn create_router(db_pool: AppState) -> Router {
     let protected_routes = Router::new()
         .route("/files", get(list_files))
         .route("/upload", post(upload_file))
+        .route("/files/{file_id}", get(files::download_file))
         .route_layer(from_fn_with_state(db_pool.clone(), auth_middleware));
 
     Router::new()
