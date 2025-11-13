@@ -4,7 +4,7 @@ use crate::routes::auth::{login, register};
 use crate::routes::files::{list_files, upload_file};
 use axum::Router;
 use axum::middleware::from_fn_with_state;
-use axum::routing::{get, post};
+use axum::routing::{delete, get, post};
 use tower_http::cors::{Any, CorsLayer};
 
 pub mod auth;
@@ -26,6 +26,7 @@ pub fn create_router(db_pool: AppState) -> Router {
         .route("/files", get(list_files))
         .route("/upload", post(upload_file))
         .route("/files/{file_id}", get(files::download_file))
+        .route("/files/{file_id}", delete(files::delete_file))
         .route_layer(from_fn_with_state(db_pool.clone(), auth_middleware));
 
     Router::new()

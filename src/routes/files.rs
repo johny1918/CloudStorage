@@ -34,7 +34,8 @@ pub async fn list_files(
                 "original_name": file.original_name,
                 "size": file.size,
                 "uploaded_at": file.uploaded_at,
-                "download_url": format!("/files/{}", file.id)  // ← Add download URL
+                "download_url": format!("/files/{}", file.id),
+                "delete_url": format!("/files/{}", file.id)  // ← Add delete URL
             })
         })
         .collect();
@@ -203,4 +204,53 @@ pub async fn download_file(
     );
 
     Ok((headers, file_content))
+}
+
+pub async fn delete_file(
+    State(state): State<AppState>,
+    Extension(auth_user): Extension<AuthUser>,
+    Path(file_id): Path<Uuid>,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+
+    let file_record = sqlx::query!(
+        "SELECT filename FROM files WHERE id = $1 AND user_id = $2",
+        file_id,
+        auth_user.user_id
+    )
+        .fetch_optional(&state.db)
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    let file_record = file_record
+        .ok_or((StatusCode::NOT_FOUND, "File not found".to_string()))?;
+
+
+    let file_path = format!("uploads/{}/{}", auth_user.user_id, file_record.filename);
+
+
+    match tokio::fs::remove_file(&file_path).await {
+        Ok(_) => (),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            // File already doesn't exist, but we'll still delete the database record
+            println!("File already deleted from filesystem: {}", file_path);
+        }
+        Err(e) => {
+            return Err((StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to delete file from disk: {}", e)));
+        }
+    }
+
+
+    sqlx::query!(
+        "DELETE FROM files WHERE id = $1 AND user_id = $2",
+        file_id,
+        auth_user.user_id
+    )
+        .execute(&state.db)
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    Ok(Json(json!({
+        "status": "success",
+        "message": "File deleted successfully"
+    })))
 }
