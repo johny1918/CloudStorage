@@ -17,7 +17,6 @@ pub async fn list_files(
     State(state): State<AppState>,
     Extension(auth_user): Extension<AuthUser>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
-    // Get user's files from database
     let files = sqlx::query!(
         "SELECT id, filename, original_name, size, uploaded_at FROM files WHERE user_id = $1 ORDER BY uploaded_at DESC",
         auth_user.user_id
@@ -34,14 +33,16 @@ pub async fn list_files(
                 "filename": file.filename,
                 "original_name": file.original_name,
                 "size": file.size,
-                "uploaded_at": file.uploaded_at
+                "uploaded_at": file.uploaded_at,
+                "download_url": format!("/files/{}", file.id)  // ← Add download URL
             })
         })
         .collect();
 
     Ok(Json(json!({
         "status": "success",
-        "files": file_list
+        "files": file_list,
+        "count": file_list.len()
     })))
 }
 
