@@ -1,10 +1,15 @@
 use crate::auth::AuthUser;
 use crate::database::AppState;
-use axum::extract::{Extension, Request};
-use axum::{Json, extract::State, http::StatusCode};
 use axum::body::Body;
-use multer::Multipart;
+use axum::extract::{Extension, Request};
+use axum::http::HeaderMap;
+use axum::{
+    Json,
+    extract::{Path, State},
+    http::StatusCode,
+};
 use bytes::Bytes;
+use multer::Multipart;
 use serde_json::json;
 use uuid::Uuid;
 
@@ -47,24 +52,37 @@ pub async fn upload_file(
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
     // Create user directory
     let user_dir = format!("uploads/{}", auth_user.user_id);
-    tokio::fs::create_dir_all(&user_dir)
-        .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to create directory: {}", e)))?;
+    tokio::fs::create_dir_all(&user_dir).await.map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Failed to create directory: {}", e),
+        )
+    })?;
 
     // Get content type
-    let content_type = request.headers()
+    let content_type = request
+        .headers()
         .get("content-type")
         .and_then(|value| value.to_str().ok())
         .ok_or((StatusCode::BAD_REQUEST, "Missing content-type".to_string()))?;
 
     // Parse the multipart boundary
-    let boundary = multer::parse_boundary(content_type)
-        .map_err(|e| (StatusCode::BAD_REQUEST, format!("Invalid content-type: {}", e)))?;
+    let boundary = multer::parse_boundary(content_type).map_err(|e| {
+        (
+            StatusCode::BAD_REQUEST,
+            format!("Invalid content-type: {}", e),
+        )
+    })?;
 
     // Convert the request body to bytes
     let body_bytes = axum::body::to_bytes(request.into_body(), 10_000_000) // 10MB limit
         .await
-        .map_err(|e| (StatusCode::BAD_REQUEST, format!("Failed to read body: {}", e)))?;
+        .map_err(|e| {
+            (
+                StatusCode::BAD_REQUEST,
+                format!("Failed to read body: {}", e),
+            )
+        })?;
 
     // Create multipart parser
     let mut multipart = Multipart::with_reader(body_bytes.as_ref(), boundary);
@@ -73,19 +91,26 @@ pub async fn upload_file(
 
     // Process each field in the multipart form
     while let Some(field) = multipart.next_field().await.map_err(|e| {
-        (StatusCode::BAD_REQUEST, format!("Failed to read multipart field: {}", e))
+        (
+            StatusCode::BAD_REQUEST,
+            format!("Failed to read multipart field: {}", e),
+        )
     })? {
         let field_name = field.name().unwrap_or("unknown").to_string();
 
         if field_name == "file" {
             // Get the original filename
-            let original_filename = field.file_name()
+            let original_filename = field
+                .file_name()
                 .map(|s| s.to_string())
                 .unwrap_or_else(|| "unknown".to_string());
 
             // Get the file content
             let file_data = field.bytes().await.map_err(|e| {
-                (StatusCode::BAD_REQUEST, format!("Failed to read file data: {}", e))
+                (
+                    StatusCode::BAD_REQUEST,
+                    format!("Failed to read file data: {}", e),
+                )
             })?;
 
             // Generate unique filename
@@ -96,7 +121,12 @@ pub async fn upload_file(
             // Save file to disk
             tokio::fs::write(&file_path, &file_data)
                 .await
-                .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to save file: {}", e)))?;
+                .map_err(|e| {
+                    (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        format!("Failed to save file: {}", e),
+                    )
+                })?;
 
             // Save file metadata to database
             let file_record = sqlx::query!(
@@ -118,7 +148,7 @@ pub async fn upload_file(
                 "uploaded_at": file_record.uploaded_at
             }));
 
-            break; 
+            break;
         }
     }
 
@@ -128,6 +158,48 @@ pub async fn upload_file(
             "message": "File uploaded successfully!",
             "file": file
         }))),
-        None => Err((StatusCode::BAD_REQUEST, "No file found in request".to_string())),
+        None => Err((
+            StatusCode::BAD_REQUEST,
+            "No file found in request".to_string(),
+        )),
     }
+}
+
+pub async fn download_file(
+    State(state): State<AppState>,
+    Extension(auth_user): Extension<AuthUser>,
+    Path(file_id): Path<Uuid>,
+) -> Result<(HeaderMap, Vec<u8>), (StatusCode, String)> {
+    let file_record = sqlx::query!(
+        "SELECT filename, original_name, size FROM files WHERE id = $1 AND user_id = $2",
+        file_id,
+        auth_user.user_id
+    )
+    .fetch_optional(&state.db)
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    let file_record = file_record.ok_or((StatusCode::NOT_FOUND, "File not found".to_string()))?;
+
+    let file_path = format!("uploads/{}/{}", auth_user.user_id, file_record.filename);
+    let file_content = tokio::fs::read(&file_path).await.map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Failed to read file: {}", e.to_string()),
+        )
+    })?;
+    let mut headers = HeaderMap::new();
+    headers.insert("content-type", "application/octet-stream".parse().unwrap());
+    headers.insert(
+        "content-disposition",
+        format!("attachment; filename=\"{}\"", file_record.original_name)
+            .parse()
+            .unwrap(),
+    );
+    headers.insert(
+        "content-length",
+        file_content.len().to_string().parse().unwrap(),
+    );
+
+    Ok((headers, file_content))
 }
