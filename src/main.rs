@@ -2,6 +2,7 @@ mod auth;
 mod database;
 mod models;
 mod routes;
+mod ErrorHandler;
 
 use crate::database::{AppState, connect_db};
 use crate::routes::create_router;
