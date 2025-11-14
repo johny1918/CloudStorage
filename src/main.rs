@@ -2,12 +2,13 @@ mod auth;
 mod database;
 mod models;
 mod routes;
-mod ErrorHandler;
+mod error_handler;
 
 use crate::database::{AppState, connect_db};
 use crate::routes::create_router;
 use axum::Router;
 use tower_http::services::ServeDir;
+
 
 #[tokio::main]
 async fn main() {

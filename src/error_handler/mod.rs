@@ -7,7 +7,7 @@ use serde_json::json;
 use sqlx::error::DatabaseError;
 use bcrypt::BcryptError;
 use jsonwebtoken::errors::Error as JwtError;
-use crate::ErrorHandler::error::AppError;
+use crate::error_handler::error::AppError;
 
 pub mod error;
 
