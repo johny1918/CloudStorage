@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use uuid::Uuid;
-
+#[allow(dead_code)]
 #[derive(Debug, Serialize)]
 pub struct File {
     pub id: Uuid,
@@ -11,7 +11,7 @@ pub struct File {
     pub size: i64,
     pub uploaded_at: DateTime<Utc>,
 }
-
+#[allow(dead_code)]
 #[derive(Debug, Serialize)]
 pub struct UploadFileResponse {
     pub id: Uuid,

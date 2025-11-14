@@ -1,5 +1,5 @@
-use sqlx::error::DatabaseError;
 #[derive(Debug)]
+#[allow(dead_code)]
 pub enum AppError {
     // Database errors
     Database(sqlx::Error),

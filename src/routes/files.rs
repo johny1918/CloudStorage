@@ -1,18 +1,16 @@
 use crate::auth::AuthUser;
 use crate::database::AppState;
+use crate::error_handler::error::AppError;
 use axum::body::Body;
 use axum::extract::{Extension, Request};
 use axum::http::HeaderMap;
 use axum::{
     Json,
     extract::{Path, State},
-    http::StatusCode,
 };
-use bytes::Bytes;
 use multer::Multipart;
 use serde_json::json;
 use uuid::Uuid;
-use crate::error_handler::error::AppError;
 
 pub async fn list_files(
     State(state): State<AppState>,
@@ -57,7 +55,8 @@ pub async fn upload_file(
     tokio::fs::create_dir_all(&user_dir).await?;
 
     // Get content type
-    let content_type = request.headers()
+    let content_type = request
+        .headers()
         .get("content-type")
         .and_then(|value| value.to_str().ok())
         .ok_or_else(|| AppError::BadRequest("Missing content-type header".to_string()))?;
@@ -72,7 +71,8 @@ pub async fn upload_file(
         .map_err(|e| AppError::BadRequest(format!("Failed to read body: {}", e)))?;
 
     // Check file size
-    if body_bytes.len() > 5_000_000 { // 5MB file size limit
+    if body_bytes.len() > 5_000_000 {
+        // 5MB file size limit
         return Err(AppError::FileTooLarge);
     }
 
@@ -82,14 +82,17 @@ pub async fn upload_file(
     let mut saved_file = None;
 
     // Process each field in the multipart form
-    while let Some(field) = multipart.next_field().await
+    while let Some(field) = multipart
+        .next_field()
+        .await
         .map_err(|e| AppError::BadRequest(format!("Failed to read multipart field: {}", e)))?
     {
         let field_name = field.name().unwrap_or("unknown").to_string();
 
         if field_name == "file" {
             // Get the original filename
-            let original_filename = field.file_name()
+            let original_filename = field
+                .file_name()
                 .map(|s| s.to_string())
                 .unwrap_or_else(|| "unknown".to_string());
 
@@ -105,7 +108,9 @@ pub async fn upload_file(
             }
 
             // Get the file content
-            let file_data = field.bytes().await
+            let file_data = field
+                .bytes()
+                .await
                 .map_err(|e| AppError::BadRequest(format!("Failed to read file data: {}", e)))?;
 
             // Generate unique filename
@@ -159,27 +164,27 @@ pub async fn download_file(
         file_id,
         auth_user.user_id
     )
-        .fetch_optional(&state.db)
-        .await?;
+    .fetch_optional(&state.db)
+    .await?;
 
-    let file_record = file_record
-        .ok_or_else(|| AppError::NotFound("File not found".to_string()))?;
+    let file_record =
+        file_record.ok_or_else(|| AppError::NotFound("File not found".to_string()))?;
 
     let file_path = format!("uploads/{}/{}", auth_user.user_id, file_record.filename);
     let file_content = tokio::fs::read(&file_path).await?;
 
     let mut headers = HeaderMap::new();
-    headers.insert(
-        "content-type",
-        "application/octet-stream".parse().unwrap(),
-    );
+    headers.insert("content-type", "application/octet-stream".parse().unwrap());
     headers.insert(
         "content-disposition",
         format!("attachment; filename=\"{}\"", file_record.original_name)
             .parse()
             .unwrap(),
     );
-    headers.insert("content-length", file_record.size.to_string().parse().unwrap());
+    headers.insert(
+        "content-length",
+        file_record.size.to_string().parse().unwrap(),
+    );
 
     Ok((headers, file_content))
 }
@@ -194,11 +199,11 @@ pub async fn delete_file(
         file_id,
         auth_user.user_id
     )
-        .fetch_optional(&state.db)
-        .await?;
+    .fetch_optional(&state.db)
+    .await?;
 
-    let file_record = file_record
-        .ok_or_else(|| AppError::NotFound("File not found".to_string()))?;
+    let file_record =
+        file_record.ok_or_else(|| AppError::NotFound("File not found".to_string()))?;
 
     let file_path = format!("uploads/{}/{}", auth_user.user_id, file_record.filename);
 
@@ -210,8 +215,8 @@ pub async fn delete_file(
         file_id,
         auth_user.user_id
     )
-        .execute(&state.db)
-        .await?;
+    .execute(&state.db)
+    .await?;
 
     Ok(Json(json!({
         "status": "success",

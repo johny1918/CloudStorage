@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use uuid::Uuid;
 
-// Use this simpler approach first
+#[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize, FromRow)]
 pub struct User {
     pub id: Uuid,
@@ -26,6 +26,7 @@ pub struct LoginUser {
     pub password: String,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Serialize, FromRow)]
 pub struct UserLogin {
     pub id: Uuid,

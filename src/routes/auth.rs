@@ -1,12 +1,11 @@
 use crate::auth::{create_jwt, hash_password, verify_password};
 use crate::database::AppState;
+use crate::error_handler::error::AppError;
 use crate::models::auth::LoginResponse;
-use crate::models::user::{LoginUser, RegisterUser, UserLogin};
+use crate::models::user::{LoginUser, RegisterUser};
 use axum::Json;
 use axum::extract::State;
-use axum::http::StatusCode;
 use serde_json::json;
-use crate::error_handler::error::AppError;
 
 pub async fn register(
     State(state): State<AppState>,
@@ -37,11 +36,10 @@ pub async fn login(
         "SELECT id, username, email, password_hash FROM users WHERE username = $1",
         login_data.username
     )
-        .fetch_optional(&state.db)
-        .await?;
+    .fetch_optional(&state.db)
+    .await?;
 
-    let user = user_result
-        .ok_or(AppError::InvalidCredentials)?;
+    let user = user_result.ok_or(AppError::InvalidCredentials)?;
 
     let is_valid = verify_password(&login_data.password, &user.password_hash)?;
 

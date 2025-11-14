@@ -1,14 +1,13 @@
 mod auth;
 mod database;
+mod error_handler;
 mod models;
 mod routes;
-mod error_handler;
 
 use crate::database::{AppState, connect_db};
 use crate::routes::create_router;
 use axum::Router;
 use tower_http::services::ServeDir;
-
 
 #[tokio::main]
 async fn main() {
@@ -29,8 +28,8 @@ async fn main() {
 
     axum::serve(
         tokio::net::TcpListener::bind(addr).await.unwrap(),
-        app.into_make_service()
+        app.into_make_service(),
     )
-        .await
-        .expect("Failed to start server");
+    .await
+    .expect("Failed to start server");
 }

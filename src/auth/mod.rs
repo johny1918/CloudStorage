@@ -1,16 +1,16 @@
 pub mod middleware;
 
+use crate::error_handler::error::AppError;
 use crate::models::auth::Claims;
-use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
 pub use middleware::{AuthUser, auth_middleware};
 use uuid::Uuid;
-use crate::error_handler::error::AppError;
 
 const JWT_EXPIRATION_HOURS: i64 = 24; // Token valid for 24 hours
 
 pub fn create_jwt(user_id: Uuid, username: &str) -> Result<String, AppError> {
     dotenv::dotenv().ok();
-    let secret = dotenv::var("JWT_SECRET").map_err(|_| AppError::Internal("JWT_SECRET must be set".to_string()))?;
+    let secret = dotenv::var("JWT_SECRET")
+        .map_err(|_| AppError::Internal("JWT_SECRET must be set".to_string()))?;
 
     let expiration = chrono::Utc::now()
         .checked_add_signed(chrono::Duration::hours(JWT_EXPIRATION_HOURS))
@@ -34,7 +34,8 @@ pub fn create_jwt(user_id: Uuid, username: &str) -> Result<String, AppError> {
 
 pub fn verify_jwt(token: &str) -> Result<Claims, AppError> {
     dotenv::dotenv().ok();
-    let secret = dotenv::var("JWT_SECRET").map_err(|_| AppError::Internal("DATABASE_URL must be set".to_string()))?;
+    let secret = dotenv::var("JWT_SECRET")
+        .map_err(|_| AppError::Internal("DATABASE_URL must be set".to_string()))?;
 
     let token_data = jsonwebtoken::decode::<Claims>(
         token,
